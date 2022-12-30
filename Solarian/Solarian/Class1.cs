@@ -3,58 +3,56 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Windows.Data;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
 
-[assembly: CommandClass(typeof(MyFirstProject1.Class1))]
-
-namespace MyFirstProject1
+namespace Lab1
 {
     public class Class1
     {
-        [CommandMethod("AdskGreeting")]
-        public void AdskGreeting()
+        [CommandMethod("HelloWorld")]
+        public void HelloWorld()
         {
-            // Get the current document and database, and start a transaction
-            Document acDoc = Application.DocumentManager.MdiActiveDocument;
-            Database acCurDb = acDoc.Database;
-
-            // Starts a new transaction with the Transaction Manager
-            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            foreach (HatchRibbonItem hatchRibItm in HatchPatterns.Instance.AllPatterns)
             {
-                // Open the Block table record for read
-                BlockTable acBlkTbl;
-                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                             OpenMode.ForRead) as BlockTable;
+                ed.WriteMessage("\n" + hatchRibItm.ToString());
+            }
+        }
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                                OpenMode.ForWrite) as BlockTableRecord;
+        [CommandMethod("solMassProp", CommandFlags.UsePickSet)]
+        public static void solMassProp()
+        {
+            Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            Database db = doc.Database;
+            Editor ed = doc.Editor;
 
-                /* Creates a new MText object and assigns it a location,
-                text value and text style */
-                using (MText objText = new MText())
-                {
-                    // Specify the insertion point of the MText object
-                    objText.Location = new Autodesk.AutoCAD.Geometry.Point3d(2, 2, 0);
+            // Ask the user to select a solid
+            PromptEntityOptions peo = new PromptEntityOptions("Select a 3D solid");
+            peo.SetRejectMessage("\nA 3D solid must be selected.");
+            peo.AddAllowedClass(typeof(Solid3d), true);
+            PromptEntityResult per = ed.GetEntity(peo);
 
-                    // Set the text string for the MText object
-                    objText.Contents = "Greetings, Welcome to AutoCAD .NET";
+            if (per.Status != PromptStatus.OK)
+                return;
 
-                    // Set the text style for the MText object
-                    objText.TextStyleId = acCurDb.Textstyle;
+            Transaction tr = db.TransactionManager.StartTransaction();
+            using (tr)
+            {
+                Solid3d sol = tr.GetObject(per.ObjectId, OpenMode.ForRead) as Solid3d;
+                Solid3dMassProperties solMassProp = sol.MassProperties;
+                Vector3d XAxisVec = solMassProp[0];
+                Vector3d YAxisVec = solMassProp[1];
+                Vector3d ZAxisVec = solMassProp[2];
 
-                    // Appends the new MText object to model space
-                    acBlkTblRec.AppendEntity(objText);
+                ed.WriteMessage("\n x:" + XAxisVec.X.ToString() + " y:" + XAxisVec.Y.ToString() + " z:" + XAxisVec.Z.ToString());
+                ed.WriteMessage("\n x:" + YAxisVec.X.ToString() + " y:" + YAxisVec.Y.ToString() + " z:" + YAxisVec.Z.ToString());
+                ed.WriteMessage("\n x:" + ZAxisVec.X.ToString() + " y:" + ZAxisVec.Y.ToString() + " z:" + ZAxisVec.Z.ToString());
 
-                    // Appends to new MText object to the active transaction
-                    acTrans.AddNewlyCreatedDBObject(objText, true);
-                }
-
-                // Saves the changes to the database and closes the transaction
-                acTrans.Commit();
             }
         }
     }
